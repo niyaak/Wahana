@@ -124,32 +124,32 @@ def process_video():
 
     # Open the video file
     cap = cv2.VideoCapture('video/car2.mp4')
-
-    # Check if video opened successfully
     if not cap.isOpened():
         print("Error: Unable to open video file.")
         return
 
-    # Set the desired frame rate
-    target_fps = 30
-    frame_time = 1.0 / target_fps  # Time per frame to maintain 30fps
+    # Set desired frame rate
+    target_fps = 30  # Define the target frames per second
+    frame_time = 1.0 / target_fps  # Time per frame to maintain target FPS
 
-    # Resize to 720p (1280x720)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    # Initialize VideoWriter for saving output
+    output_filename = 'output.avi'
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter(output_filename, fourcc, target_fps, (1280, 720))
 
-    # Loop through each frame
     while cap.isOpened():
         ret, frame = cap.read()
-
         if not ret:
             break
 
-        # Resize frame to 720p
         resized_frame = cv2.resize(frame, (1280, 720))
 
         # Run the lane detection pipeline
         lane_frame = pipeline(resized_frame)
+        
+        # If the pipeline function fails to return a frame, use the original frame
+        if lane_frame is None:
+            lane_frame = resized_frame.copy()
 
         # Run YOLOv8 to detect cars in the current frame
         results = model(resized_frame)
@@ -158,31 +158,22 @@ def process_video():
         for result in results:
             boxes = result.boxes
             for box in boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])  # Bounding box coordinates
-                conf = box.conf[0]  # Confidence score
-                cls = int(box.cls[0])  # Class ID
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = box.conf[0]
+                cls = int(box.cls[0])
 
-                # Only draw bounding boxes for cars with confidence >= 0.5
                 if model.names[cls] == 'car' and conf >= 0.5:
                     label = f'{model.names[cls]} {conf:.2f}'
-
-                    # Draw the bounding box
                     cv2.rectangle(lane_frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
-                    cv2.putText(lane_frame, label, (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+                    cv2.putText(lane_frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
-                    # Estimate the distance of the car
                     bbox_width = x2 - x1
-                    bbox_height = y2 - y1
-                    distance = estimate_distance(bbox_width, bbox_height)
-
-                    # Display the estimated distance
+                    distance = estimate_distance(bbox_width, y2 - y1)
                     distance_label = f'Distance: {distance:.2f}m'
-                    cv2.putText(lane_frame, distance_label, (x1, y2 + 20),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                    cv2.putText(lane_frame, distance_label, (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
-        # Display the resulting frame with both lane detection and car detection
-        cv2.imshow('Lane and Car Detection', lane_frame)
+        # Save the frame to output video file
+        out.write(lane_frame)
 
         # Limit the frame rate to 30fps
         time.sleep(frame_time)
@@ -191,9 +182,10 @@ def process_video():
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    # Release video capture and close windows
     cap.release()
+    out.release()
     cv2.destroyAllWindows()
+
 
 # Run the video processing function
 process_video()
