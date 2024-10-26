@@ -123,7 +123,7 @@ def process_video():
     model = YOLO('weights/yolov8n.pt')
 
     # Open the video file
-    cap = cv2.VideoCapture('video/car2.mp4')
+    cap = cv2.VideoCapture('video/car.mp4')
     if not cap.isOpened():
         print("Error: Unable to open video file.")
         return
@@ -133,7 +133,7 @@ def process_video():
     frame_time = 1.0 / target_fps  # Time per frame to maintain target FPS
 
     # Initialize VideoWriter for saving output
-    output_filename = 'output.avi'
+    output_filename = 'output2.avi'
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(output_filename, fourcc, target_fps, (1280, 720))
 
